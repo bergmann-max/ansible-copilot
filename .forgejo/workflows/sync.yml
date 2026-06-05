@@ -10,11 +10,9 @@ on:
 jobs:
   sync:
     runs-on: arm64
+    container: node:22-slim
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
       - run: node scripts/sync.js
       - name: Commit if changed
         run: |

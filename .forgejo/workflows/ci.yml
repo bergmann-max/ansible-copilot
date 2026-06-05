@@ -9,34 +9,27 @@ on:
 jobs:
   lint:
     runs-on: arm64
+    container: node:${{ matrix.node-version }}-slim
     strategy:
       matrix:
         node-version: [18, 20, 22]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: npm
       - run: npm ci
       - run: npm run lint
 
   sync:
     runs-on: arm64
+    container: node:22-slim
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
       - run: node scripts/sync.js --check
 
   smoke:
     runs-on: arm64
+    container: node:22-slim
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
       - run: node bin/install.js --list --non-interactive --no-color
       - run: node bin/install.js --dry-run --all --non-interactive --no-color
       - run: node bin/install.js --dry-run --only opencode --non-interactive --no-color
