@@ -41,7 +41,7 @@
     "url": "https://github.com/bergmann-max/ansible-copilot/issues"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "repository": {
     "type": "git",
