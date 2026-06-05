@@ -38,7 +38,7 @@ jobs:
     if: github.event_name == 'push'
     needs: [lint, sync-check, smoke]
     runs-on: arm64
-    container: node:22-slim
+    container: node:22
     steps:
       - uses: actions/checkout@v4
       - run: node scripts/sync.js
