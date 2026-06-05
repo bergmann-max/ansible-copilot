@@ -1,0 +1,17 @@
+{
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD024": { "siblings_only": true },
+    "MD033": false,
+    "MD041": false,
+    "MD060": false
+  },
+  "globs": [
+    "ANSIBLE.md",
+    "README.md",
+    ".github/copilot-instructions.md",
+    "steering/*.md",
+    "src/**/*.md"
+  ]
+}

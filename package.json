@@ -1,0 +1,53 @@
+{
+  "name": "ansible-copilot",
+  "version": "0.1.0",
+  "description": "Ansible plugin for AI coding agents - build, lint, and validate playbooks",
+  "main": "bin/install.js",
+  "bin": {
+    "ansible-copilot": "bin/install.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "steering/",
+    "mcp.json",
+    "ANSIBLE.md",
+    "CLAUDE.md",
+    "GEMINI.md",
+    "AGENTS.md",
+    "gemini-extension.json",
+    "LICENSE"
+  ],
+  "keywords": [
+    "ansible",
+    "playbook",
+    "role",
+    "handler",
+    "inventory",
+    "vault",
+    "ai",
+    "code-agent",
+    "mcp"
+  ],
+  "author": "Max Bergmann",
+  "scripts": {
+    "lint": "markdownlint-cli2 ANSIBLE.md README.md .github/copilot-instructions.md 'steering/*.md' 'src/**/*.md'",
+    "sync": "node scripts/sync.js",
+    "sync:check": "node scripts/sync.js --check"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/bergmann-max/ansible-copilot#readme",
+  "bugs": {
+    "url": "https://github.com/bergmann-max/ansible-copilot/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bergmann-max/ansible-copilot.git"
+  },
+  "devDependencies": {
+    "markdownlint-cli2": "^0.22.1"
+  }
+}

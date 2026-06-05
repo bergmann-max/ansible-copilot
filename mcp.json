@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "mcp-ansible": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/bergmann-max/mcp-ansible.git@0.3.0",
+        "mcp-ansible"
+      ],
+      "autoApprove": []
+    }
+  }
+}

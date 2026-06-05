@@ -1,0 +1,6 @@
+{
+  "name": "ansible",
+  "description": "Build, lint, and validate Ansible playbooks and roles with best practices and idempotent design patterns.",
+  "version": "0.1.0",
+  "contextFileName": "GEMINI.md"
+}
