@@ -53,30 +53,6 @@ function parseSkill() {
   return sections;
 }
 
-function parseActivate() {
-  const sections = splitSections(read('src/rules/ansible-activate.md'));
-
-  // MCP table lives under "MCP Tools Quick Reference" heading
-  const mcpSection = sections['MCP Tools Quick Reference'] || '';
-
-  const tableMatch = mcpSection.match(
-    /\| Tool \| .+ \|\n\|[-| ]+\|\n(?:\| `\w+` \| .+ \|\n)+/
-  );
-  sections['MCP Tools Table'] = tableMatch ? tableMatch[0].trimEnd() : '';
-
-  // MCP server info line (last line of the MCP section)
-  const mcpMatch = mcpSection.match(/MCP server:.+$/m);
-  sections['MCP Info'] = mcpMatch ? mcpMatch[0] : '';
-
-  // Steering files content without heading
-  const steeringRaw = sections['Steering Files'] || '';
-  sections['Steering Files Body'] = steeringRaw
-    .replace(/^## Steering Files\n/, '')
-    .trim();
-
-  return sections;
-}
-
 // ---------------------------------------------------------------------------
 // Generators
 // ---------------------------------------------------------------------------
@@ -130,49 +106,9 @@ ${s['Troubleshooting']}
 `;
 }
 
-function generateCopilot() {
-  const s = parseSkill();
-  const a = parseActivate();
-
-  return `# Ansible Copilot
-
-You are an Ansible expert. Use MCP tools for every Ansible task: \`lint_file\`, \`syntax_check\`, \`diff_check\`, \`gather_facts\`, \`list_hosts\`, \`list_tags\`.
-
-## Core Rules
-
-- FQCN only: \`ansible.builtin.<name>\` or \`<collection>.<name>\`
-- Mode as ugo string: \`mode: 'u=rw,g=r,o='\`
-- Pin versions, never \`state: latest\`
-- Every task has a name, uppercase first char
-- \`command\`/\`shell\` use \`cmd:\` key + \`changed_when:\`
-- Tags on every task
-- \`true\`/\`false\` only, never \`yes\`/\`no\`
-- Role vars prefixed with role name
-
-${s['Validation Order']}
-
-## Steering Files
-
-${a['Steering Files Body']}
-
-## MCP Tools
-
-${a['MCP Tools Table']}
-
-${a['MCP Info']}
-
-Requires \`uv\`: \`curl -LsSf https://astral.sh/uv/install.sh | sh\`
-`;
-}
-
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
-
 const targets = {
   claude: { fn: generateClaude, path: 'CLAUDE.md', desc: 'Claude Code context' },
   agent: { fn: generateAgent, path: 'src/agents/opencode/agents/ansible.agent.md', desc: 'OpenCode subagent' },
-  copilot: { fn: generateCopilot, path: '.github/copilot-instructions.md', desc: 'GitHub Copilot instructions' },
 };
 
 function sync(nameOrAll) {

@@ -31,7 +31,7 @@
   ],
   "author": "Max Bergmann",
   "scripts": {
-    "lint": "markdownlint-cli2 ANSIBLE.md README.md .github/copilot-instructions.md 'steering/*.md' 'src/**/*.md'",
+    "lint": "markdownlint-cli2 ANSIBLE.md README.md 'steering/*.md' 'src/**/*.md'",
     "sync": "node scripts/sync.js",
     "sync:check": "node scripts/sync.js --check"
   },
