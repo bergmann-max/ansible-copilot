@@ -20,14 +20,14 @@ jobs:
 
   sync-check:
     runs-on: arm64
-    container: node:22-slim
+    container: node:24-slim@sha256:242549cd46785b480c832479a730f4f2a20865d61ea2e404fdb2a5c3d3b73ecf
     steps:
       - uses: actions/checkout@v4
       - run: node scripts/sync.js --check
 
   smoke:
     runs-on: arm64
-    container: node:22-slim
+    container: node:24-slim@sha256:242549cd46785b480c832479a730f4f2a20865d61ea2e404fdb2a5c3d3b73ecf
     steps:
       - uses: actions/checkout@v4
       - run: node bin/install.js --list --non-interactive --no-color
@@ -38,7 +38,7 @@ jobs:
     if: github.event_name == 'push'
     needs: [lint, sync-check, smoke]
     runs-on: arm64
-    container: node:22
+    container: node:24@sha256:8530f76a96d88820d288761f022e318970dda93d01536919fbc16076b7983e63
     steps:
       - uses: actions/checkout@v4
       - run: node scripts/sync.js
