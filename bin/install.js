@@ -232,6 +232,15 @@ function opencodeConfigDir() {
   return path.join(os.homedir(), '.config', 'opencode');
 }
 
+function opencodeConfigFile(dir) {
+  // Prefer .jsonc (current OpenCode default)
+  const jsonc = path.join(dir, 'opencode.jsonc');
+  const json = path.join(dir, 'opencode.json');
+  if (fs.existsSync(jsonc)) return jsonc;
+  if (fs.existsSync(json)) return json;
+  return jsonc; // default to .jsonc for new installs
+}
+
 function copyDirRecursive(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
@@ -255,13 +264,13 @@ function installOpencode(ctx) {
     return;
   }
 
-  const dir = opencodeConfigDir();
+  const dir = opts.configDir || opencodeConfigDir();
   const pluginDir   = path.join(dir, 'plugins', 'ansible');
   const skillsDir   = path.join(dir, 'skills', 'ansible');
   const agentsDir   = path.join(dir, 'agents');
   const commandsDir = path.join(dir, 'commands');
   const pluginSrc   = path.join(repoRoot, 'src', 'agents', 'opencode');
-  const opencodeJson = path.join(dir, 'opencode.json');
+  const opencodeJson = opencodeConfigFile(dir);
   const agentsMd     = path.join(dir, 'AGENTS.md');
 
   if (opts.dryRun) {
@@ -378,19 +387,16 @@ function installOpencode(ctx) {
       try { fs.copyFileSync(opencodeJson, opencodeBak); } catch (_) {}
     }
 
-    if (!cfg.plugins) cfg.plugins = {};
-    cfg.plugins.ansible = { enabled: true };
-
+    const patches = { 'plugins.ansible': { enabled: true } };
     if (opts.withMcpServer) {
-      if (!cfg.mcpServers) cfg.mcpServers = {};
-      cfg.mcpServers['mcp-ansible'] = {
+      patches['mcpServers.mcp-ansible'] = {
         command: 'uvx',
         args: ['--from', MCP_SERVER_REF, 'mcp-ansible'],
       };
       process.stdout.write('  registered mcp-ansible server\n');
     }
 
-    SETTINGS.writeSettings(opencodeJson, cfg);
+    if (!opts.dryRun) SETTINGS.patchSettings(opencodeJson, patches, []);
     process.stdout.write(`  patched: ${opencodeJson}\n`);
 
     results.installed.push('opencode');
@@ -430,17 +436,17 @@ function installClaude(ctx) {
     if (settings === null) {
       say('  settings.json unparseable; will not touch MCP config. Edit manually.');
     } else {
-      if (!settings.mcpServers) settings.mcpServers = {};
-      settings.mcpServers['mcp-ansible'] = {
-        command: 'uvx',
-        args: ['--from', MCP_SERVER_REF, 'mcp-ansible'],
-      };
       const bak = settingsPath + '.bak';
       if (fs.existsSync(settingsPath) && !fs.existsSync(bak)) {
         try { fs.copyFileSync(settingsPath, bak); } catch (_) {}
       }
       if (!opts.dryRun) {
-        SETTINGS.writeSettings(settingsPath, settings);
+        SETTINGS.patchSettings(settingsPath, {
+          'mcpServers.mcp-ansible': {
+            command: 'uvx',
+            args: ['--from', MCP_SERVER_REF, 'mcp-ansible'],
+          },
+        }, []);
         process.stdout.write(`  registered mcp-ansible in ${settingsPath}\n`);
       }
     }
@@ -530,22 +536,23 @@ function uninstall(ctx) {
 
   // opencode native install — strip plugin, MCP, and files
   if (onlyNone || opts.only.includes('opencode')) {
-  const ocDir = opencodeConfigDir();
+  const ocDir = opts.configDir || opencodeConfigDir();
   const ocPluginDir = path.join(ocDir, 'plugins', 'ansible');
   if (fs.existsSync(ocPluginDir)) {
-    const ocJson = path.join(ocDir, 'opencode.json');
+    const ocJson = opencodeConfigFile(ocDir);
     if (fs.existsSync(ocJson)) {
       const cfg = SETTINGS.readSettings(ocJson);
       if (cfg) {
-        if (cfg.plugins) {
-          delete cfg.plugins.ansible;
-          if (Object.keys(cfg.plugins).length === 0) delete cfg.plugins;
+        const removals = [];
+        if (cfg.plugins && cfg.plugins.ansible) {
+          if (Object.keys(cfg.plugins).length === 1) removals.push('plugins');
+          else removals.push('plugins.ansible');
         }
         if (cfg.mcpServers && typeof cfg.mcpServers === 'object' && cfg.mcpServers['mcp-ansible']) {
-          delete cfg.mcpServers['mcp-ansible'];
-          if (Object.keys(cfg.mcpServers).length === 0) delete cfg.mcpServers;
+          if (Object.keys(cfg.mcpServers).length === 1) removals.push('mcpServers');
+          else removals.push('mcpServers.mcp-ansible');
         }
-        if (!opts.dryRun) SETTINGS.writeSettings(ocJson, cfg);
+        if (!opts.dryRun && removals.length) SETTINGS.patchSettings(ocJson, {}, removals);
         say(`  pruned ansible-copilot entries from ${ocJson}`);
       }
     }
@@ -607,9 +614,13 @@ function uninstall(ctx) {
     if (fs.existsSync(settingsPath)) {
       let settings = SETTINGS.readSettings(settingsPath);
       if (settings && settings.mcpServers && settings.mcpServers['mcp-ansible']) {
-        delete settings.mcpServers['mcp-ansible'];
-        if (Object.keys(settings.mcpServers).length === 0) delete settings.mcpServers;
-        if (!opts.dryRun) SETTINGS.writeSettings(settingsPath, settings);
+        const removals = [];
+        if (Object.keys(settings.mcpServers).length === 1) {
+          removals.push('mcpServers');
+        } else {
+          removals.push('mcpServers.mcp-ansible');
+        }
+        if (!opts.dryRun) SETTINGS.patchSettings(settingsPath, {}, removals);
         ok('  pruned mcp-ansible from settings.json');
       }
     }
@@ -640,8 +651,11 @@ function uninstall(ctx) {
     }
   }
 
-  // Per-repo init files — strip fenced blocks (codex, copilot only on --only)
-  if (onlyNone || opts.only.includes('codex') || opts.only.includes('copilot')) {
+  // Per-repo init files — strip fenced blocks for all providers that get them
+  const initFileProviders = new Set(['opencode', 'codex', 'copilot']);
+  if (hasCmd('claude')) initFileProviders.add('claude');
+  if (hasCmd('gemini')) initFileProviders.add('gemini');
+  if (onlyNone || opts.only.some(id => initFileProviders.has(id))) {
     const cwd = process.cwd();
     const initTargets = [
       '.opencode/AGENTS.md',
@@ -696,14 +710,18 @@ function runInit(ctx) {
   const ruleBody = fs.readFileSync(ruleSrc, 'utf8').trimEnd() + '\n';
   const fencedBlock = `${INIT_BEGIN}\n${ruleBody}${INIT_END}\n`;
 
-  const targets = {
-    '.opencode/AGENTS.md': path.join(cwd, '.opencode', 'AGENTS.md'),
-    'AGENTS.md': path.join(cwd, 'AGENTS.md'),
-  };
-  if (hasCmd('claude')) targets['.claude/CLAUDE.md'] = path.join(cwd, '.claude', 'CLAUDE.md');
-  if (hasCmd('gemini')) targets['.gemini/GEMINI.md'] = path.join(cwd, '.gemini', 'GEMINI.md');
-  targets['.github/copilot-instructions.md'] = path.join(cwd, '.github', 'copilot-instructions.md');
-  targets['.codex/instructions.md'] = path.join(cwd, '.codex', 'instructions.md');
+  function shouldWrite(id) {
+    if (!opts.only.length) return true;
+    return opts.only.includes(id);
+  }
+
+  const targets = {};
+  if (shouldWrite('opencode')) targets['.opencode/AGENTS.md'] = path.join(cwd, '.opencode', 'AGENTS.md');
+  targets['AGENTS.md'] = path.join(cwd, 'AGENTS.md');
+  if (hasCmd('claude') && shouldWrite('claude')) targets['.claude/CLAUDE.md'] = path.join(cwd, '.claude', 'CLAUDE.md');
+  if (hasCmd('gemini') && shouldWrite('gemini')) targets['.gemini/GEMINI.md'] = path.join(cwd, '.gemini', 'GEMINI.md');
+  if (shouldWrite('copilot')) targets['.github/copilot-instructions.md'] = path.join(cwd, '.github', 'copilot-instructions.md');
+  if (shouldWrite('codex')) targets['.codex/instructions.md'] = path.join(cwd, '.codex', 'instructions.md');
 
   for (const [label, dest] of Object.entries(targets)) {
     if (opts.dryRun) {
